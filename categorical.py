@@ -15,6 +15,7 @@ class CategoricalFeatures:
         self.handle_na = handle_na
         self.label_encoder = dict()
         self.binary_encoder = dict()
+        self.ohe_encoder = dict()
 
 
         if self.handle_na:
@@ -24,15 +25,47 @@ class CategoricalFeatures:
 
     def _lable_encoder(self):
         for c in self.cat_feats:
-            lbl = preprocessing.LabelEncoder
-            lbl.fit(self, self.df[c].values)
-            self.output_df.loc[:,c] = lbl.transform( self, y = self.df[c].values)
+            lbl = preprocessing.LabelEncoder()
+            lbl.fit(self.df[c].values)
+            self.output_df.loc[:,c] = lbl.transform(self.df[c].values)
             self.label_encoder[c] = lbl
         return self.output_df
+
+    def _binary_encoder(self):
+        for c in self.cat_feats:
+            lbl = preprocessing.LabelBinarizer()
+            lbl.fit(self.df[c].values)
+            val = lbl.transform(self.df[c].values)
+            self.output_df = self.output_df.drop(c , axis = 1)
+            """
+            since "LabelBinarization" provide ndarray we need new columns for ever columns of the array
+            """
+            for j in range(val.shape[1]):
+                new_col_name = c+ f"_bin{j}"
+                self.output_df[new_col_name] = val[:,j]
+            self.binary_encoder[c] = lbl
+        return self.output_df
+
+    def _one_hot(self):
+        for c in self.cat_feats:
+            ohe = preprocessing.OneHotEncoder()
+            ohe.fit(self.df[c].values.reshape(-1,1))
+            val = ohe.transform(self.df[c].values.reshape(-1,1))
+            self.output_df = self.output_df.drop(c, axis = 1)
+            for j in range(val.shape[1]):
+                new_col_name = c + f"_bin{j}"
+                self.output_df[new_col_name] = val[:,j]
+            self.ohe_encoder[c]=ohe
+        return self.output_df
+
     
     def fit_transform(self):
         if self.enc_types == 'label':
             return self._lable_encoder()
+        elif self.enc_types == 'binary':
+            return self._binary_encoder()
+        elif self.enc_types == "ohe":
+            return self._one_hot()
 
       
 
@@ -44,6 +77,24 @@ class CategoricalFeatures:
         if self.enc_types == 'label':
             for c , lbl in self.label_encoder.items():
                 dataframe.loc[:,c ] = lbl.transform(dataframe[c].values)
+            return dataframe
+
+        elif self.enc_types == 'binary':
+            for c , lbl in self.binary_encoder.items():
+                val = lbl.transform(dataframe[c].values)
+                dataframe = dataframe.drop(c , axis = 1)
+                for j in range(val.shape[1]):
+                    new_col_name = c +f"_bin{j}"
+                    dataframe[new_col_name] = val[:,j]
+            return dataframe
+
+        elif self.enc_types == "ohe":
+            for c in self.cat_feats:
+                val = ohe.transform(dataframe[c].values)
+                dataframe = dataframe.drop(c, axis = 1)
+                for j in range(val.shape[1]):
+                    new_col_name = c + f"_bin{j}"
+                    dataframe[new_col_name] = val[:,j]
             return dataframe
 
 
@@ -65,7 +116,8 @@ if __name__ ==  "__main__":
     cols =  ['department', 'region', 'education', 'gender','recruitment_channel']
     cat_feats = CategoricalFeatures(df = full_data,
                                     categorical_features = cols,
-                                    encoding_types = 'label',
+                                    encoding_types = 'ohe',
                                     handle_na = True)
 
     full_data_transformed = cat_feats.fit_transform()
+    print(full_data_transformed)
