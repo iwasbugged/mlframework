@@ -17,32 +17,24 @@ class CategoricalFeatures:
         self.binary_encoder = dict()
 
 
-    if self.handle_na:
-        for c in cat_feats:
-            self.df.loc[:,c] = self.df.loc[:,c].astype(str).fillna(-9999)
-    self.output_df =  self.df.copy(deep= True)
+        if self.handle_na:
+            for c in self.cat_feats:
+                self.df.loc[:,c] = self.df.loc[:,c].astype(str).fillna(-9999)
+        self.output_df =  self.df.copy(deep= True)
 
     def _lable_encoder(self):
         for c in self.cat_feats:
             lbl = preprocessing.LabelEncoder
-            lbl.fit(self.df[c].values)
-            self.output_df.loc[:,c] = lbl.transform(self.df[c].values)
+            lbl.fit(self, self.df[c].values)
+            self.output_df.loc[:,c] = lbl.transform( self, y = self.df[c].values)
             self.label_encoder[c] = lbl
         return self.output_df
     
-
-
-      """
-      "fit_transform()" function for the encoding of the train dataset
-      """
     def fit_transform(self):
         if self.enc_types == 'label':
             return self._lable_encoder()
 
-      """
-      "transform()" function is for test dataset because the train dataset already been fit in the encoding 
-      algorithm so for test-dataset there is no need to fit the data in the encoding algorithm
-      """
+      
 
     def transform(self,dataframe):
         if self.handle_na:
@@ -58,4 +50,22 @@ class CategoricalFeatures:
 
 if __name__ ==  "__main__":
     import pandas as pd 
-    
+    df_train = pd.read_csv("hr_train.csv")
+    df_test = pd.read_csv('hr_test.csv')
+    sample = pd.read_csv('hr_sample_submission.csv')
+
+    df_train.drop('employee_id', axis= 1 ,inplace= True)
+    df_test.drop('employee_id', axis= 1, inplace= True)
+
+    train_len = len(df_train)
+
+    df_test['is_promoted'] = -1
+    full_data = pd.concat([df_train , df_test])
+
+    cols =  ['department', 'region', 'education', 'gender','recruitment_channel']
+    cat_feats = CategoricalFeatures(df = full_data,
+                                    categorical_features = cols,
+                                    encoding_types = 'label',
+                                    handle_na = True)
+
+    full_data_transformed = cat_feats.fit_transform()
